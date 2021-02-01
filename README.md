@@ -17,3 +17,5 @@ use 5V external power source
 Run
 - run make
 - ./led
+
+https://github.com/BernhardR/ledmatrix/blob/main/docu/info.jpg
