@@ -84,8 +84,22 @@
 
 // dfinition of AZ-Delivery display default size
 #define MATRIX_PIXELS			8
-#define MATRIX_COUNT			4
 
+// all Elements are counted from left=0 to right=max 
+// one lement with 4 Matrix
+//#define MATRIX_COUNT			4   // if you have one display with for matrix this is 4
+//#define MATRIX_COUNT_PREPM		6   // for full scrolling this is MATRIX_COUNT+2
+//#define FIRST_MATRIX_IN_REAL    0   // This is the first element where the scrolling is visual
+
+//two elements with 4 matrix
+#define MATRIX_COUNT			8   // if you have one display with for matrix this is 4
+#define MATRIX_COUNT_PREPM		10   // for full scrolling this is MATRIX_COUNT+2
+#define FIRST_MATRIX_IN_REAL    0   // This is the first element where the scrolling is visual
+
+//two elements with 4 matrix - scrolling only on the right
+//#define MATRIX_COUNT			8   // if you have one display with for matrix this is 4
+//#define MATRIX_COUNT_PREPM		6   // for full scrolling this is MATRIX_COUNT+2
+//#define FIRST_MATRIX_IN_REAL    4   // This is the first element where the scrolling is visual
 /************************************/
 /*    defintions of macros          */
 /************************************/
@@ -107,8 +121,8 @@ int totalBufferLengthForMessage;	// Total length of the buffer containing the by
 /***************************************/
 /*    Definition of the message buffer */
 /***************************************/
-unsigned char buffer_prep_matrix[MATRIX_COUNT+2][MATRIX_PIXELS];		// super safe big buffer :-)
-unsigned char buffer_real_matrix[MATRIX_COUNT][MATRIX_PIXELS];	// this is the buffer which is going to be displayed - Text & Effects
+unsigned char buffer_prep_matrix[MATRIX_COUNT_PREPM][MATRIX_PIXELS];   // this is the buffer where we scroll and prepare display data - Text & Effects
+unsigned char buffer_real_matrix[MATRIX_COUNT][MATRIX_PIXELS];	       // this is the buffer which is going to be displayed 
 
 /************************************/
 /*    defintion of functions        */
@@ -330,7 +344,7 @@ void loadCharToMatrix(unsigned char buffer[][MATRIX_PIXELS], unsigned char theCh
 	// Retrieve the 8 bytes of the character
 	for (int column = 0; column < MATRIX_PIXELS; column++)
 	{
-		buffer_prep_matrix[pos][column] = tempChar[column];
+		buffer[pos][column] = tempChar[column];
 	}
 }
 
@@ -371,6 +385,14 @@ void scrollBuffer(unsigned char buffer[][MATRIX_PIXELS], int length) {
 
 			buffer[max][line] = val;
 		}
+	}
+}
+
+// Show a static text in the display - used if parts are scrolling
+void show_static_text(char* text, int pos) {
+	for (int i = 0;i < strlen(text);i++) {
+		loadCharToMatrix(buffer_real_matrix, text[i], pos+i);
+		printf("Load to pos %d\n", pos + i);
 	}
 }
 
@@ -429,7 +451,7 @@ int main(int argc, char* argv[])
 	/*     Init all leds of real matrix to off       * /
 	/**************************************************/
 	printf("init real matrix\n");
-	for (int i = 0; i < MATRIX_COUNT - 1; i++)
+	for (int i = 0; i < MATRIX_COUNT; i++)
 	{
 		for (int j = 0; j < MATRIX_PIXELS;j++) {
 			buffer_real_matrix[i][j] = 0;
@@ -439,36 +461,41 @@ int main(int argc, char* argv[])
 	/*     Init all leds of prep matrix to off       * /
 	/**************************************************/
 	printf("init prep matrix\n");
-	for (int i = 0; i < MATRIX_COUNT + 1; i++)
+	for (int i = 0; i < MATRIX_COUNT_PREPM; i++)
 	{
 		for (int j = 0; j < MATRIX_PIXELS;j++) {
 			buffer_prep_matrix[i][j] = 0;
 		}
 	}
-
+	
 	do // begin from start
 	{
 		// init pointer
 		printf("Start full loop\n");
 		int message_buffer_pointer = 0;
+
+		//show_static_text("halb",0);
 		
 		do // loop through text
 		{
-			printf("Load char %d %c\n", message_buffer_pointer, message[message_buffer_pointer]);
-			loadCharToMatrix(buffer_prep_matrix, message[message_buffer_pointer], MATRIX_COUNT + 1); // prepmatrix is 2 times bigger to allow scroll in and out
-			//showBuffer(buffer_prep_matrix, MATRIX_COUNT + 2);
+			//printf("Load char %d %c\n", message_buffer_pointer, message[message_buffer_pointer]);
+			
+			// load char to postion out of sight and than scroll into visual 
+			loadCharToMatrix(buffer_prep_matrix, message[message_buffer_pointer], MATRIX_COUNT_PREPM - 1); 
 			message_buffer_pointer++;
 
 			// scroll one char in matrix
 			for (int fullscroll = 0;fullscroll < MATRIX_PIXELS; fullscroll++) {
 				//Load Bit from Message Buffer into Display Buffer
-				for (int i = 1; i < MATRIX_COUNT + 1; i++) {
+				
+				for (int i = 1; i < MATRIX_COUNT_PREPM-1; i++) {  // start from one because at 0 every char disapears 
 					for (int j = 0; j < MATRIX_PIXELS; j++) {
-						buffer_real_matrix[i - 1][j] = buffer_prep_matrix[i][j];
+						buffer_real_matrix[i-1 + FIRST_MATRIX_IN_REAL][j] = buffer_prep_matrix[i][j];
 					}
 				}
-
+				
 				//Think about effects
+				//showBuffer(buffer_real_matrix, MATRIX_COUNT);
 
 				// Send out the matrix buffer to the leds
 				for (int line = 1;line < (MATRIX_PIXELS + 1);line++) {
@@ -477,8 +504,8 @@ int main(int argc, char* argv[])
 					}
 					MAX7219_Load(); // let all MAX devices load the column
 				}
-
-				scrollBuffer(buffer_prep_matrix, MATRIX_COUNT + 1);
+				
+				scrollBuffer(buffer_prep_matrix, MATRIX_COUNT_PREPM - 1);
 				delay(50);
 			}
 
